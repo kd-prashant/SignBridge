@@ -1,0 +1,32 @@
+# WLASL100 training configuration — Stage 1 baseline
+
+dataset:
+  name: WLASL100
+  json_url: https://raw.githubusercontent.com/dxli94/WLASL/master/start_kit/WLASL_v0.3.json
+  subset_size: 100  # first 100 glosses by order in the JSON
+
+paths:
+  raw_dir: data/raw
+  videos_dir: data/videos
+  landmarks_dir: data/landmarks
+  models_dir: ../ml-service/models
+
+landmarks:
+  num_hands: 2
+  hand_landmarks: 21
+  pose_landmarks: 33
+  max_frames: 64  # pad/truncate video sequences to this length
+
+model:
+  type: lstm
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.3
+  window_size: 30
+
+training:
+  batch_size: 32
+  epochs: 50
+  learning_rate: 0.001
+  val_split: 0.2
+  seed: 42
