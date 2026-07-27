@@ -106,7 +106,7 @@ export default function Recognize() {
                 disabled={!isReady || cameraState === "starting"}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
-                {cameraState === "starting" ? "Starting…" : "Start Camera"}
+                {!isReady ? "Loading Model..." : cameraState === "starting" ? "Starting…" : "Start Camera"}
               </button>
             ) : (
               <button

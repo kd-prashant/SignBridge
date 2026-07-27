@@ -35,3 +35,7 @@ db.json
 
 # Documentation (Private)
 PRD*.md
+
+# Kaggle Dataset
+archive/
+archive.zip

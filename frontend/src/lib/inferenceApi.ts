@@ -16,7 +16,7 @@ export interface LandmarkFrame {
 }
 
 const INFERENCE_URL =
-  import.meta.env.VITE_INFERENCE_URL ?? "/api/inference/predict";
+  import.meta.env.VITE_INFERENCE_URL ?? "/predict";
 
 export async function predictSign(
   frames: LandmarkFrame[],

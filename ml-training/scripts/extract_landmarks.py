@@ -31,7 +31,7 @@ def load_config() -> dict:
 def frame_to_features(hand_result, pose_result) -> np.ndarray:
     vec: list[float] = []
 
-    hands = hand_result.hand_landmarks or []
+    hands = hand_result.multi_hand_landmarks or []
     for h in range(NUM_HANDS):
         if h < len(hands):
             for lm in hands[h].landmark:

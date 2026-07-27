@@ -1,7 +1,7 @@
 torch>=2.5.0
 numpy>=1.26.0
 opencv-python>=4.10.0
-mediapipe>=0.10.18
+mediapipe==0.10.14
 pyyaml>=6.0.2
 tqdm>=4.67.0
 scikit-learn>=1.6.0

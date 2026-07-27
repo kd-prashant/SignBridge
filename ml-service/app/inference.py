@@ -1,4 +1,4 @@
-"""Inference engine — loads trained LSTM model or falls back to mock predictions."""
+"""Inference engine — loads trained LSTM model and Alphabet model, and routes smartly."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import joblib
 
 try:
     import torch
@@ -37,6 +38,95 @@ class SignLSTM(nn.Module if nn else object):  # type: ignore
         return self.fc(out[:, -1, :])
 
 
+class AlphabetEngine:
+    def __init__(self, model_dir: Path):
+        self.model_dir = model_dir
+        self.model = None
+        self.labels = []
+        self.is_loaded = False
+
+    def load(self):
+        labels_path = self.model_dir / "alphabet_labels.json"
+        model_path = self.model_dir / "rf_alphabet.joblib"
+        
+        if labels_path.exists() and model_path.exists():
+            self.labels = json.loads(labels_path.read_text(encoding="utf-8"))
+            self.model = joblib.load(model_path)
+            self.is_loaded = True
+            print("AlphabetEngine loaded successfully.")
+        else:
+            print("AlphabetEngine could not load models.")
+            self.labels = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            self.is_loaded = False
+
+    def _normalize_landmarks(self, vec: list[float]) -> list[float]:
+        if len(vec) < 3:
+            return vec
+        base_x, base_y, base_z = vec[0], vec[1], vec[2]
+        
+        normalized = []
+        for i in range(0, len(vec), 3):
+            nx = vec[i] - base_x
+            ny = vec[i+1] - base_y
+            nz = vec[i+2] - base_z
+            normalized.extend([nx, ny, nz])
+            
+        max_val = max(abs(v) for v in normalized)
+        if max_val > 0:
+            normalized = [v / max_val for v in normalized]
+            
+        return normalized
+
+    def _frame_to_tensor(self, frame: dict[str, Any]) -> np.ndarray:
+        vec = []
+        hands = frame.get("hands", [])
+        if len(hands) > 0:
+            for lm in hands[0]:
+                vec.extend(lm[:HAND_DIM])
+        
+        while len(vec) < NUM_HAND_LANDMARKS * HAND_DIM:
+            vec.append(0.0)
+            
+        vec = self._normalize_landmarks(vec)
+        return np.array([vec], dtype=np.float32)
+
+    def predict(self, frame: dict[str, Any]) -> dict[str, Any]:
+        if not self.is_loaded or not self.model:
+            return self._mock_response()
+            
+        tensor = self._frame_to_tensor(frame)
+        probs = self.model.predict_proba(tensor)[0]
+        indexed = sorted(enumerate(probs), key=lambda x: x[1], reverse=True)
+        top_3 = [
+            {"label": self.labels[i], "confidence": float(p)}
+            for i, p in indexed[:3]
+        ]
+        return {
+            "top_prediction": top_3[0],
+            "top_3": top_3,
+            "model_loaded": True,
+            "vocabulary_size": len(self.labels),
+            "mode": "Alphabet",
+        }
+
+    def _mock_response(self) -> dict[str, Any]:
+        weights = [random.random() for _ in self.labels]
+        total = sum(weights)
+        probs = [w / total for w in weights]
+        indexed = sorted(enumerate(probs), key=lambda x: x[1], reverse=True)
+        top_3 = [
+            {"label": self.labels[i], "confidence": round(float(p), 4)}
+            for i, p in indexed[:3]
+        ]
+        return {
+            "top_prediction": top_3[0],
+            "top_3": top_3,
+            "model_loaded": False,
+            "vocabulary_size": len(self.labels),
+            "mode": "Alphabet",
+        }
+
+
 class InferenceEngine:
     def __init__(self, model_dir: Path):
         self.model_dir = model_dir
@@ -45,11 +135,15 @@ class InferenceEngine:
         self.window_size = 30
         self.is_loaded = False
 
+        self.alphabet_engine = AlphabetEngine(model_dir)
+
     @property
     def vocabulary_size(self) -> int:
         return len(self.labels)
 
     def load(self) -> None:
+        self.alphabet_engine.load()
+        
         labels_path = self.model_dir / "labels.json"
         model_path = self.model_dir / "lstm_wlasl100.pt"
 
@@ -86,7 +180,6 @@ class InferenceEngine:
         ]
 
     def _frames_to_tensor(self, frames: list[dict[str, Any]]) -> np.ndarray:
-        """Convert landmark frames to fixed-size feature vector per frame."""
         seq = []
         for frame in frames[-self.window_size :]:
             vec: list[float] = []
@@ -113,9 +206,35 @@ class InferenceEngine:
 
         return np.array(seq, dtype=np.float32)
 
+    def _is_stationary(self, frames: list[dict[str, Any]]) -> bool:
+        if len(frames) < 10:
+            return True
+            
+        recent = frames[-10:]
+        hand_centers = []
+        for frame in recent:
+            hands = frame.get("hands", [])
+            if len(hands) > 0 and len(hands[0]) > 0:
+                # Use wrist (0) as center
+                hand_centers.append(np.array(hands[0][0][:2]))
+        
+        if len(hand_centers) < 2:
+            return True
+            
+        # Calculate max displacement
+        variances = np.var(hand_centers, axis=0)
+        movement = np.sum(variances)
+        
+        # Threshold for stillness (if movement is very small)
+        return movement < 0.005
+
     def predict(self, frames: list[dict[str, Any]]) -> dict[str, Any]:
         if not frames:
             return self._empty_response()
+
+        # SMART ROUTER
+        if self._is_stationary(frames):
+            return self.alphabet_engine.predict(frames[-1])
 
         if self.is_loaded and self.model and torch:
             tensor = self._frames_to_tensor(frames)
@@ -134,12 +253,12 @@ class InferenceEngine:
                 "top_3": top_3,
                 "model_loaded": True,
                 "vocabulary_size": len(self.labels),
+                "mode": "Word",
             }
 
         return self._mock_response()
 
     def _mock_response(self) -> dict[str, Any]:
-        """Fallback when no trained model is present — for frontend dev/testing."""
         weights = [random.random() for _ in self.labels]
         total = sum(weights)
         probs = [w / total for w in weights]
@@ -153,6 +272,7 @@ class InferenceEngine:
             "top_3": top_3,
             "model_loaded": False,
             "vocabulary_size": len(self.labels),
+            "mode": "Word",
         }
 
     def _empty_response(self) -> dict[str, Any]:
@@ -161,4 +281,5 @@ class InferenceEngine:
             "top_3": [],
             "model_loaded": self.is_loaded,
             "vocabulary_size": len(self.labels),
+            "mode": "Unknown",
         }
