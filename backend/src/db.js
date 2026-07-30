@@ -13,7 +13,8 @@ async function initDb() {
   } catch (e) {
     const defaultData = {
       users: [],
-      progress: []
+      progress: [],
+      transcripts: []
     };
     await fs.writeFile(DB_FILE, JSON.stringify(defaultData, null, 2));
   }

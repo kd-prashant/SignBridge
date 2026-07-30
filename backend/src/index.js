@@ -82,6 +82,34 @@ app.post("/api/progress", authenticate, async (req, res) => {
   res.json({ success: true });
 });
 
+// Transcript Routes
+app.get("/api/transcripts", authenticate, async (req, res) => {
+  const data = await db.readDb();
+  // Ensure transcripts array exists for backwards compatibility with old db.json
+  const transcripts = data.transcripts || [];
+  const userTranscripts = transcripts.filter(t => t.userId === req.user.id);
+  res.json(userTranscripts);
+});
+
+app.post("/api/transcripts", authenticate, async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: "text is required" });
+
+  const data = await db.readDb();
+  if (!data.transcripts) data.transcripts = [];
+  
+  const transcript = {
+    id: Date.now().toString(),
+    userId: req.user.id,
+    text,
+    createdAt: new Date().toISOString()
+  };
+  
+  data.transcripts.push(transcript);
+  await db.writeDb(data);
+  res.status(201).json(transcript);
+});
+
 // Start DB then server
 db.initDb().then(() => {
   app.listen(PORT, () => {

@@ -50,7 +50,12 @@ export default function Layout() {
           <div className="flex items-center gap-4 text-sm">
             {isAuthenticated ? (
               <>
-                <span className="text-slate-500 hidden sm:inline-block">{user?.email}</span>
+                <NavLink 
+                  to="/profile"
+                  className="hidden sm:inline-block font-medium text-brand-600 hover:text-brand-700 hover:underline"
+                >
+                  {user?.email}
+                </NavLink>
                 <button 
                   onClick={handleLogout}
                   className="px-4 py-2 font-medium text-slate-600 hover:text-slate-900 transition-colors"

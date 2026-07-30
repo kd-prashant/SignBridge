@@ -8,6 +8,8 @@ import About from "./pages/About";
 import Lesson from "./pages/Lesson";
 import Login from "./pages/Login";
 
+import Profile from "./pages/Profile";
+
 export default function App() {
   return (
     <Routes>
@@ -19,6 +21,7 @@ export default function App() {
         <Route path="understand" element={<Understand />} />
         <Route path="about" element={<About />} />
         <Route path="login" element={<Login />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
     </Routes>
   );

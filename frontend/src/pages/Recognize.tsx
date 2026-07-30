@@ -2,10 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useMediaPipe } from "../hooks/useMediaPipe";
 import { useSignRecognition } from "../hooks/useSignRecognition";
 import { checkInferenceHealth } from "../lib/inferenceApi";
+import { useAuth } from "../lib/AuthContext";
 
 type CameraState = "idle" | "starting" | "active" | "denied" | "unavailable";
 
 export default function Recognize() {
+  const { isAuthenticated, token } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [showOverlay, setShowOverlay] = useState(true);
   const [serviceOk, setServiceOk] = useState<boolean | null>(null);
@@ -53,6 +58,29 @@ export default function Recognize() {
 
   const top3 = recognition.currentPrediction?.top_3 ?? [];
   const topConfidence = recognition.currentPrediction?.top_prediction.confidence ?? 0;
+
+  const handleSave = async () => {
+    if (!isAuthenticated || !token || !recognition.text) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch("http://localhost:3001/api/transcripts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: recognition.text })
+      });
+      if (res.ok) {
+        setSaveMessage("Saved!");
+        setTimeout(() => setSaveMessage(""), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save transcript", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -155,7 +183,7 @@ export default function Recognize() {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={recognition.clearText}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -169,6 +197,19 @@ export default function Recognize() {
             >
               Copy
             </button>
+            
+            {isAuthenticated && (
+              <div className="flex items-center gap-2 ml-auto">
+                {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+                <button
+                  onClick={handleSave}
+                  disabled={!recognition.text || isSaving}
+                  className="rounded-lg bg-brand-100 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-200 disabled:opacity-50 transition-colors"
+                >
+                  {isSaving ? "Saving..." : "Save to Profile"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Confidence bar */}
