@@ -48,3 +48,21 @@ def predict(body: dict):
     frames = body.get("frames", [])
     result = engine.predict(frames)
     return result
+
+
+@app.post("/predict/alphabet")
+def predict_alphabet(body: dict):
+    """Dedicated endpoint for alphabet (A-Z) recognition on a single frame."""
+    frames = body.get("frames", [])
+    # Use the most recent frame for static sign recognition
+    if not frames:
+        return {
+            "top_prediction": {"label": "", "confidence": 0.0},
+            "top_3": [],
+            "model_loaded": engine.alphabet_engine.is_loaded,
+            "vocabulary_size": 26,
+            "mode": "Alphabet",
+        }
+    latest_frame = frames[-1]
+    result = engine.alphabet_engine.predict(latest_frame)
+    return result

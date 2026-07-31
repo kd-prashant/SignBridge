@@ -16,14 +16,14 @@ interface Transcript {
 }
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const [progress, setProgress] = useState<Progress[]>([]);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !token) {
       navigate("/login");
       return;
     }
@@ -32,10 +32,10 @@ export default function Profile() {
       try {
         const [progressRes, transcriptsRes] = await Promise.all([
           fetch("http://localhost:3001/api/progress", {
-            headers: { Authorization: `Bearer ${user.token}` }
+            headers: { Authorization: `Bearer ${token}` }
           }),
           fetch("http://localhost:3001/api/transcripts", {
-            headers: { Authorization: `Bearer ${user.token}` }
+            headers: { Authorization: `Bearer ${token}` }
           })
         ]);
 
@@ -56,7 +56,7 @@ export default function Profile() {
     };
 
     fetchData();
-  }, [user, navigate]);
+  }, [user, token, navigate]);
 
   const handleLogout = () => {
     logout();

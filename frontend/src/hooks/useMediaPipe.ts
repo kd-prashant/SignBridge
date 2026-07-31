@@ -3,6 +3,7 @@ import {
   HandLandmarker,
   PoseLandmarker,
   FilesetResolver,
+  DrawingUtils,
 } from "@mediapipe/tasks-vision";
 import type { LandmarkFrame } from "../lib/inferenceApi";
 
@@ -100,23 +101,35 @@ export function useMediaPipe() {
     ) => {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+      const drawingUtils = new DrawingUtils(ctx);
+
+      // Draw pose skeleton connections in green
       if (poseResult.landmarks?.[0]) {
-        ctx.fillStyle = "#22c55e";
-        for (const lm of poseResult.landmarks[0]) {
-          ctx.beginPath();
-          ctx.arc(lm.x * ctx.canvas.width, lm.y * ctx.canvas.height, 3, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+        drawingUtils.drawConnectors(
+          poseResult.landmarks[0],
+          PoseLandmarker.POSE_CONNECTIONS,
+          { color: "#22c55e", lineWidth: 2 }
+        );
+        drawingUtils.drawLandmarks(poseResult.landmarks[0], {
+          color: "#22c55e",
+          fillColor: "#16a34a",
+          radius: 3,
+        });
       }
 
-      if (handResult.landmarks) {
-        ctx.fillStyle = "#3b82f6";
+      // Draw hand skeleton connections in blue
+      if (handResult.landmarks?.length) {
         for (const hand of handResult.landmarks) {
-          for (const lm of hand) {
-            ctx.beginPath();
-            ctx.arc(lm.x * ctx.canvas.width, lm.y * ctx.canvas.height, 4, 0, 2 * Math.PI);
-            ctx.fill();
-          }
+          drawingUtils.drawConnectors(
+            hand,
+            HandLandmarker.HAND_CONNECTIONS,
+            { color: "#3b82f6", lineWidth: 3 }
+          );
+          drawingUtils.drawLandmarks(hand, {
+            color: "#1d4ed8",
+            fillColor: "#93c5fd",
+            radius: 5,
+          });
         }
       }
     },

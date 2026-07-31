@@ -88,7 +88,7 @@ export default function Recognize() {
         <h1 className="text-3xl font-bold text-slate-900">Recognize Signs</h1>
         <p className="mt-2 text-slate-600">
           Position your hand clearly in frame, sign slowly, and pause briefly between signs.
-          Recognizes <strong>ASL</strong> from the WLASL100 vocabulary.
+          Recognizes <strong>ASL</strong> A–Z alphabet. Hold a letter still for ~1.5 seconds to commit it.
         </p>
       </div>
 
@@ -163,9 +163,35 @@ export default function Recognize() {
 
         {/* Output panel */}
         <div className="space-y-4">
-          {recognition.lastCommittedSign && (
-            <div className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-4 py-1.5 text-sm font-medium text-brand-700">
-              Last sign: {recognition.lastCommittedSign}
+          {/* Live prediction badge - shows in real time even before commit */}
+          <div className="flex items-center gap-3">
+            {recognition.currentPrediction && recognition.currentPrediction.top_prediction.label ? (
+              <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
+                (recognition.currentPrediction.top_prediction.confidence ?? 0) >= recognition.confidenceThreshold
+                  ? "bg-green-100 text-green-800 border border-green-300"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}>
+                <span className="text-lg">{recognition.currentPrediction.top_prediction.label}</span>
+                <span className="text-xs font-normal opacity-75">
+                  {Math.round((recognition.currentPrediction.top_prediction.confidence ?? 0) * 100)}%
+                </span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 text-sm text-slate-400 border border-slate-200">
+                {isActive ? "Waiting for hand..." : "Start camera to begin"}
+              </div>
+            )}
+
+            {recognition.lastCommittedSign && (
+              <div className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1.5 text-xs font-medium text-brand-700 border border-brand-200">
+                ✓ Committed: {recognition.lastCommittedSign}
+              </div>
+            )}
+          </div>
+
+          {!recognition.modelLoaded && recognition.currentPrediction && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+              ⚠️ Alphabet model not loaded — showing mock predictions. Check ML service.
             </div>
           )}
 
